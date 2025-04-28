@@ -5,7 +5,7 @@
   <title>Type-Implicit C Editor</title>
   <style>
     body { margin: 0; font-family: sans-serif; }
-    #editor { width: 100%; height: 95vh; font-family: monospace; font-size: 16px; padding: 10px; box-sizing: border-box; }
+    #editor { width: 100%; height: 95vh; font-family: monospace; font-size: 16px; padding: 10px; box-sizing: border-box; white-space: pre; overflow: auto; }
     .tooltip {
       position: absolute;
       background: #333;
@@ -15,6 +15,7 @@
       font-size: 12px;
       display: none;
       pointer-events: none;
+      z-index: 100;
     }
   </style>
 </head>
@@ -34,7 +35,7 @@ const tooltip = document.getElementById('tooltip');
 const basicTypes = ["int", "float", "char", "double", "void"];
 let variableTypes = {};
 
-// Find variables in the text
+// Find variables
 function findVariables(text) {
   const varRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
   const matches = new Set();
@@ -48,7 +49,16 @@ function findVariables(text) {
   return Array.from(matches);
 }
 
-// Save function (Ctrl+S)
+// Get word at mouse position
+function getWordAtCursorPosition(text, pos) {
+  let start = pos;
+  let end = pos;
+  while (start > 0 && /[a-zA-Z0-9_]/.test(text[start - 1])) start--;
+  while (end < text.length && /[a-zA-Z0-9_]/.test(text[end])) end++;
+  return text.slice(start, end);
+}
+
+// Save
 function handleSave() {
   const vars = findVariables(editor.value);
   const untyped = vars.filter(v => !variableTypes[v]);
@@ -60,17 +70,24 @@ function handleSave() {
   }
 }
 
-// Show tooltip if hovering over variable
+// Handle hover
 editor.addEventListener('mousemove', (e) => {
-  const text = editor.value;
-  const pos = editor.selectionStart;
-  const lines = text.substring(0, pos).split("\n");
-  const line = lines[lines.length - 1];
-  const words = line.split(/\\s|\\W/);
-  const lastWord = words[words.length - 1];
-
-  if (variableTypes[lastWord]) {
-    tooltip.innerHTML = "Type: " + variableTypes[lastWord];
+  const rect = editor.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  
+  const lines = editor.value.split('\\n');
+  const approxLine = Math.floor((y / editor.clientHeight) * lines.length);
+  const lineText = lines[approxLine] || "";
+  
+  const approxChar = Math.floor((x / editor.clientWidth) * lineText.length);
+  
+  const cursorIndex = lines.slice(0, approxLine).reduce((sum, l) => sum + l.length + 1, 0) + approxChar;
+  
+  const word = getWordAtCursorPosition(editor.value, cursorIndex);
+  
+  if (word && variableTypes[word]) {
+    tooltip.innerHTML = "Type: " + variableTypes[word];
     tooltip.style.left = e.pageX + 10 + "px";
     tooltip.style.top = e.pageY + 10 + "px";
     tooltip.style.display = "block";
@@ -79,31 +96,26 @@ editor.addEventListener('mousemove', (e) => {
   }
 });
 
-// Click to select type
+// Click to assign type
 editor.addEventListener('click', (e) => {
-  const text = editor.value;
   const pos = editor.selectionStart;
-  const lines = text.substring(0, pos).split("\n");
-  const line = lines[lines.length - 1];
-  const words = line.split(/\\s|\\W/);
-  const lastWord = words[words.length - 1];
+  const word = getWordAtCursorPosition(editor.value, pos);
 
-  if (lastWord && !basicTypes.includes(lastWord)) {
-    const type = prompt(`Select type for '${lastWord}':\\n${basicTypes.join(", ")}`);
+  if (word && !basicTypes.includes(word)) {
+    const type = prompt(`Select type for '${word}':\\n${basicTypes.join(", ")}`);
     if (basicTypes.includes(type)) {
-      variableTypes[lastWord] = type;
+      variableTypes[word] = type;
     }
   }
 });
 
-// Listen for Ctrl+S
+// Ctrl+S for save
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.key === 's') {
     e.preventDefault();
     handleSave();
   }
 });
-
 </script>
 
 </body>
