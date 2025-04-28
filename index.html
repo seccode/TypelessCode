@@ -216,6 +216,7 @@
                 const variable = word.word;
                 selectedVariable = variable;
                 const dropdown = document.getElementById('type-dropdown');
+                dropdown.value = ""; // Reset dropdown to "Select Type"
                 const coords = editor.getScrolledVisiblePosition(position);
                 dropdown.style.left = `${coords.left}px`;
                 dropdown.style.top = `${coords.top + 20}px`;
