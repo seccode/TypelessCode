@@ -88,7 +88,7 @@
 </head>
 <body>
     <div id="toolbar">
-        <button onclick="saveCode()">Save</button>
+        <button onclick="lintCode()">Lint</button>
         <button onclick="downloadCode()">Download</button>
     </div>
     <div id="editor-container"></div>
@@ -191,7 +191,7 @@
                     dropdown.style.display = 'none';
                     selectedVariable = null;
                 }
-                isVariableClick = false; // Reset flag after handling
+                isVariableClick = false;
             });
 
             editor.onMouseDown(function(e) {
@@ -211,7 +211,7 @@
                     return;
                 }
 
-                isVariableClick = true; // Set flag to prevent document click handler from closing
+                isVariableClick = true;
 
                 const variable = word.word;
                 selectedVariable = variable;
@@ -231,7 +231,7 @@
                 selectedVariable = null;
             };
 
-            window.saveCode = function() {
+            window.lintCode = function() {
                 const code = editor.getValue();
                 const variables = Object.keys(variablePositions);
                 const untyped = variables.filter(v => !variableTypes[v]);
@@ -241,23 +241,28 @@
                     modalMessage.textContent = `The following variables are untyped: ${untyped.join(', ')}`;
                     document.getElementById('modal').style.display = 'flex';
                 } else {
-                    alert('Code saved successfully!');
+                    alert('All variables are typed!');
                 }
             };
 
             window.downloadCode = function() {
                 const code = editor.getValue();
+                const lines = code.split('\n');
+                const typedLines = [...lines];
+
+                Object.keys(variableTypes).forEach(variable => {
+                    const pos = variablePositions[variable];
+                    if (pos) {
+                        const lineIndex = pos.line - 1;
+                        const line = lines[lineIndex];
+                        const type = variableTypes[variable];
+                        const regex = new RegExp(`\\b${variable}\\b(?=\\s*(=|[;]))`);
+                        typedLines[lineIndex] = line.replace(regex, `${type} ${variable}`);
+                    }
+                });
+
                 let typedCode = '#include <stdio.h>\n\n';
-                const variables = Object.keys(variableTypes);
-
-                if (variables.length > 0) {
-                    variables.forEach(v => {
-                        typedCode += `${variableTypes[v]} ${v};\n`;
-                    });
-                    typedCode += '\n';
-                }
-
-                typedCode += code;
+                typedCode += typedLines.join('\n');
 
                 const blob = new Blob([typedCode], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
