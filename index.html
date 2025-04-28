@@ -116,7 +116,7 @@
         require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs' }});
         require(['vs/editor/editor.main'], function() {
             const editor = monaco.editor.create(document.getElementById('editor-container'), {
-                value: '// Start coding here\nint main() {\n    x = 5;\n    y;\n    z = 3.14;\n    return 0;\n}',
+                value: '// Start coding here\nint main() {\n    x = 5;\n    y;\n    z = 3.14;\n    printf("%d", x);\n    return 0;\n}',
                 language: 'c',
                 theme: 'vs-dark',
                 automaticLayout: true
@@ -133,24 +133,40 @@
                 const lines = code.split('\n');
                 const newDecorations = [];
                 variablePositions = {};
+                const declaredVariables = new Set();
 
+                // Step 1: Identify variable declarations/assignments
                 const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*(=|[;]))/g;
                 lines.forEach((line, lineIndex) => {
                     let match;
                     while ((match = variableRegex.exec(line)) !== null) {
                         const variable = match[1];
+                        declaredVariables.add(variable);
                         const startColumn = match.index + 1;
                         const endColumn = startColumn + variable.length;
 
+                        // Store position for linting and downloading
                         variablePositions[variable] = { line: lineIndex + 1, startColumn, endColumn };
-
-                        newDecorations.push({
-                            range: new monaco.Range(lineIndex + 1, startColumn, lineIndex + 1, endColumn),
-                            options: {
-                                inlineClassName: 'variable-decoration'
-                            }
-                        });
                     }
+                });
+
+                // Step 2: Decorate all occurrences of declared variables
+                declaredVariables.forEach(variable => {
+                    const regex = new RegExp(`\\b${variable}\\b`, 'g');
+                    lines.forEach((line, lineIndex) => {
+                        let match;
+                        while ((match = regex.exec(line)) !== null) {
+                            const startColumn = match.index + 1;
+                            const endColumn = startColumn + variable.length;
+
+                            newDecorations.push({
+                                range: new monaco.Range(lineIndex + 1, startColumn, lineIndex + 1, endColumn),
+                                options: {
+                                    inlineClassName: 'variable-decoration'
+                                }
+                            });
+                        }
+                    });
                 });
 
                 decorations = editor.deltaDecorations(decorations, newDecorations);
@@ -216,7 +232,7 @@
                 const variable = word.word;
                 selectedVariable = variable;
                 const dropdown = document.getElementById('type-dropdown');
-                dropdown.value = ""; // Reset dropdown to "Select Type"
+                dropdown.value = "";
                 const coords = editor.getScrolledVisiblePosition(position);
                 dropdown.style.left = `${coords.left}px`;
                 dropdown.style.top = `${coords.top + 20}px`;
