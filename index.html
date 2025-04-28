@@ -1,122 +1,194 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Type-Implicit C Editor</title>
-  <style>
-    body { margin: 0; font-family: sans-serif; }
-    #editor { width: 100%; height: 95vh; font-family: monospace; font-size: 16px; padding: 10px; box-sizing: border-box; white-space: pre; overflow: auto; }
-    .tooltip {
-      position: absolute;
-      background: #333;
-      color: white;
-      padding: 5px;
-      border-radius: 4px;
-      font-size: 12px;
-      display: none;
-      pointer-events: none;
-      z-index: 100;
-    }
-  </style>
+<title>Type-Hinting C Editor</title>
+<style>
+  #editor {
+    width: 80%;
+    height: 500px;
+    border: 1px solid #ccc;
+    font-family: monospace;
+    padding: 10px;
+    overflow-y: scroll;
+    white-space: pre-wrap; /* Preserve line breaks */
+  }
+  .variable {
+    cursor: pointer;
+    position: relative; /* For positioning the type hint */
+  }
+  .type-hint {
+    position: absolute;
+    top: -20px; /* Adjust as needed */
+    background-color: lightyellow;
+    border: 1px solid #ddd;
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    display: none; /* Hidden by default */
+    z-index: 10; /* Ensure it's on top */
+  }
+  #type-dropdown {
+    display: none;
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ccc;
+    padding: 5px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+  }
+  #type-dropdown button {
+    display: block;
+    padding: 3px 8px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+  }
+  #type-dropdown button:hover {
+    background-color: #f0f0f0;
+  }
+  #message-area {
+    margin-top: 10px;
+    font-style: italic;
+  }
+</style>
 </head>
 <body>
+  <h1>Type-Hinting C Editor</h1>
+  <div id="editor" contenteditable="true"></div>
+  <div id="type-dropdown"></div>
+  <div id="message-area"></div>
+  <button id="saveButton">Save</button>
+  <button id="downloadButton">Download</button>
 
-<textarea id="editor">// Start typing C code
-x = 5;
-y = 3.14;
-</textarea>
+  <script>
+    const editor = document.getElementById('editor');
+    const typeDropdown = document.getElementById('type-dropdown');
+    const messageArea = document.getElementById('message-area');
+    const saveButton = document.getElementById('saveButton');
+    const downloadButton = document.getElementById('downloadButton');
+    const cTypes = ['int', 'char', 'float', 'double', 'void', 'short', 'long', 'unsigned int', 'signed char', /* Add more C types */];
+    const variableTypes = {}; // Store variable types
 
-<div id="tooltip" class="tooltip"></div>
+    function escapeHtml(unsafe) {
+      return unsafe
+           .replace(/&/g, "&amp;")
+           .replace(/</g, "&lt;")
+           .replace(/>/g, "&gt;")
+           .replace(/"/g, "&quot;")
+           .replace(/'/g, "&#039;");
+   }
 
-<script>
-const editor = document.getElementById('editor');
-const tooltip = document.getElementById('tooltip');
-
-const basicTypes = ["int", "float", "char", "double", "void"];
-let variableTypes = {};
-
-// Find variables
-function findVariables(text) {
-  const varRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
-  const matches = new Set();
-  let match;
-  while ((match = varRegex.exec(text)) !== null) {
-    const name = match[1];
-    if (!basicTypes.includes(name)) {
-      matches.add(name);
+    function updateEditorDisplay() {
+      let content = editor.textContent;
+      // Basic word boundary regex for identifying potential variables
+      const variableRegex = /\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
+      let newContent = content.replace(variableRegex, (match) => {
+        const escapedMatch = escapeHtml(match);
+        if (variableTypes[match]) {
+          return `<span class="variable" data-variable="${escapedMatch}"><span class="type-hint">${variableTypes[match]}</span>${escapedMatch}</span>`;
+        } else {
+          return `<span class="variable" data-variable="${escapedMatch}">${escapedMatch}</span>`;
+        }
+      });
+      editor.innerHTML = newContent;
+      attachVariableEventListeners();
     }
-  }
-  return Array.from(matches);
-}
 
-// Get word at mouse position
-function getWordAtCursorPosition(text, pos) {
-  let start = pos;
-  let end = pos;
-  while (start > 0 && /[a-zA-Z0-9_]/.test(text[start - 1])) start--;
-  while (end < text.length && /[a-zA-Z0-9_]/.test(text[end])) end++;
-  return text.slice(start, end);
-}
+    function attachVariableEventListeners() {
+      const variables = document.querySelectorAll('.variable');
+      variables.forEach(variableSpan => {
+        variableSpan.addEventListener('mouseover', (event) => {
+          event.target.style.cursor = 'pointer';
+          const typeHint = event.target.querySelector('.type-hint');
+          if (typeHint) {
+            typeHint.style.display = 'block';
+          }
+        });
 
-// Save
-function handleSave() {
-  const vars = findVariables(editor.value);
-  const untyped = vars.filter(v => !variableTypes[v]);
-  if (untyped.length > 0) {
-    alert("Missing types for: " + untyped.join(", "));
-  } else {
-    alert("All variables have types! ✅");
-    console.log("Saving with types:", variableTypes);
-  }
-}
+        variableSpan.addEventListener('mouseout', (event) => {
+          const typeHint = event.target.querySelector('.type-hint');
+          if (typeHint) {
+            typeHint.style.display = 'none';
+          }
+        });
 
-// Handle hover
-editor.addEventListener('mousemove', (e) => {
-  const rect = editor.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  
-  const lines = editor.value.split('\\n');
-  const approxLine = Math.floor((y / editor.clientHeight) * lines.length);
-  const lineText = lines[approxLine] || "";
-  
-  const approxChar = Math.floor((x / editor.clientWidth) * lineText.length);
-  
-  const cursorIndex = lines.slice(0, approxLine).reduce((sum, l) => sum + l.length + 1, 0) + approxChar;
-  
-  const word = getWordAtCursorPosition(editor.value, cursorIndex);
-  
-  if (word && variableTypes[word]) {
-    tooltip.innerHTML = "Type: " + variableTypes[word];
-    tooltip.style.left = e.pageX + 10 + "px";
-    tooltip.style.top = e.pageY + 10 + "px";
-    tooltip.style.display = "block";
-  } else {
-    tooltip.style.display = "none";
-  }
-});
-
-// Click to assign type
-editor.addEventListener('click', (e) => {
-  const pos = editor.selectionStart;
-  const word = getWordAtCursorPosition(editor.value, pos);
-
-  if (word && !basicTypes.includes(word)) {
-    const type = prompt(`Select type for '${word}':\\n${basicTypes.join(", ")}`);
-    if (basicTypes.includes(type)) {
-      variableTypes[word] = type;
+        variableSpan.addEventListener('click', (event) => {
+          const variableName = event.target.dataset.variable;
+          if (variableName) {
+            showTypeDropdown(event.clientX, event.clientY, variableName);
+          }
+        });
+      });
     }
-  }
-});
 
-// Ctrl+S for save
-window.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.key === 's') {
-    e.preventDefault();
-    handleSave();
-  }
-});
-</script>
+    function showTypeDropdown(x, y, variableName) {
+      typeDropdown.innerHTML = '';
+      cTypes.forEach(type => {
+        const typeButton = document.createElement('button');
+        typeButton.textContent = type;
+        typeButton.addEventListener('click', () => {
+          variableTypes[variableName] = type;
+          typeDropdown.style.display = 'none';
+          updateEditorDisplay();
+        });
+        typeDropdown.appendChild(typeButton);
+      });
 
+      typeDropdown.style.left = `${x}px`;
+      typeDropdown.style.top = `${y}px`;
+      typeDropdown.style.display = 'block';
+    }
+
+    // Hide the dropdown when clicking outside
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('#type-dropdown') && !event.target.classList.contains('variable')) {
+        typeDropdown.style.display = 'none';
+      }
+    });
+
+    editor.addEventListener('input', updateEditorDisplay);
+
+    saveButton.addEventListener('click', () => {
+      const untypedVariables = Object.keys(variableTypes).reduce((acc, varName) => {
+        const content = editor.textContent;
+        const variableRegex = new RegExp(`\\b${varName}\\b`, 'g');
+        if (content.match(variableRegex) && !variableTypes[varName]) {
+          acc.push(varName);
+        }
+        return acc;
+      }, []);
+
+      if (untypedVariables.length > 0) {
+        alert(`The following variables haven't been typed: ${untypedVariables.join(', ')}`);
+      } else {
+        // In a real scenario, you'd send this to a server or use local storage
+        messageArea.textContent = "Code saved (locally in browser memory for now).";
+        console.log("Code:", editor.textContent, "Variable Types:", variableTypes);
+      }
+    });
+
+    downloadButton.addEventListener('click', () => {
+      let codeWithTypes = editor.textContent.split('\n').map(line => {
+        const variableRegex = /\b[a-zA-Z_][a-zA-Z0-9_]*\b/g;
+        return line.replace(variableRegex, (match) => {
+          return variableTypes[match] ? `${variableTypes[match]} ${match}` : match;
+        });
+      }).join('\n');
+
+      const filename = 'code.c';
+      const blob = new Blob([codeWithTypes], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // Initial update to apply event listeners to any initial content
+    updateEditorDisplay();
+  </script>
 </body>
 </html>
