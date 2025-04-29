@@ -216,23 +216,27 @@
                 variablePositions = {};
                 const declaredVariables = new Set();
 
-                // Step 1: Identify variable declarations/assignments
-                const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*(=|[;]))/g;
+                // Step 1: Identify variable declarations/assignments (ignoring 'return')
+                const variableRegex = /\b(?!return\b)([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*(=|[;]))/g;
                 lines.forEach((line, lineIndex) => {
                     let match;
                     while ((match = variableRegex.exec(line)) !== null) {
                         const variable = match[1];
+                        // Skip 'return' if it somehow matches
+                        if (variable === 'return') continue;
+
                         declaredVariables.add(variable);
                         const startColumn = match.index + 1;
                         const endColumn = startColumn + variable.length;
 
-                        // Store position for linting and downloading
                         variablePositions[variable] = { line: lineIndex + 1, startColumn, endColumn };
                     }
                 });
 
-                // Step 2: Decorate all occurrences of declared variables
+                // Step 2: Decorate all occurrences of declared variables (excluding 'return')
                 declaredVariables.forEach(variable => {
+                    if (variable === 'return') return;
+
                     const regex = new RegExp(`\\b${variable}\\b`, 'g');
                     lines.forEach((line, lineIndex) => {
                         let match;
@@ -332,7 +336,7 @@
             window.lintCode = function() {
                 const code = editor.getValue();
                 const variables = Object.keys(variablePositions);
-                const untyped = variables.filter(v => !variableTypes[v]);
+                const untyped = variables.filter(v => !variableTypes[v] && v !== 'return');
 
                 if (untyped.length > 0) {
                     const modalMessage = document.getElementById('modal-message');
@@ -374,55 +378,11 @@
             window.closeModal = function() {
                 document.getElementById('modal').style.display = 'none';
             };
-            window.handleFileUpload = function(input) {
-                const file = input.files[0];
-                if (!file) return;
+            
 
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const content = e.target.result;
-                    const newVariableTypes = {};
-                    const strippedLines = [];
-                    const lines = content.split('\n');
 
-                    // This pattern matches ALL C type declarations including:
-                    // - Basic types (int, char, float, etc.)
-                    // - Modifiers (unsigned, short, long)
-                    // - Pointers (*)
-                    // - Arrays ([])
-                    // - Struct/union/enum
-                    const typePattern = /(\b(?:struct|union|enum|unsigned|signed|short|long|_Bool|_Complex|_Atomic|void|char|int|float|double|size_t|int\d+_t|uint\d+_t|wchar_t|ptrdiff_t)\b\s*)+(\*+\s*|\s*\*+\s*|\s*)([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*[=;,)\[\]])/g;
 
-                    lines.forEach(line => {
-                        let processedLine = line;
-                        let match;
 
-                        // Reset regex state
-                        typePattern.lastIndex = 0;
-
-                        while ((match = typePattern.exec(line)) !== null) {
-                            const fullMatch = match[0];  // Full type declaration
-                            const varName = match[match.length - 1]; // Last capture group is variable name
-                            const typePart = fullMatch.replace(varName, '').trim();
-
-                            // Store type information
-                            newVariableTypes[varName] = typePart;
-
-                            // Replace type declaration with just variable name
-                            processedLine = processedLine.replace(fullMatch, varName);
-                        }
-
-                        strippedLines.push(processedLine);
-                    });
-
-                    // Update editor and state
-                    editor.setValue(strippedLines.join('\n'));
-                    variableTypes = newVariableTypes;
-                    updateVariableDecorations();
-                    input.value = '';
-                };
-                reader.readAsText(file);
-            };
         });
     </script>
 </body>
