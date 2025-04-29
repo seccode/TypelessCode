@@ -14,3 +14,6 @@ cd TypelessCode
 ```
 open index.html
 ```
+
+# License
+Typeless Code is licensed under the MIT license and is free to use for everyone, including businesses
