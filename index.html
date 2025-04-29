@@ -94,15 +94,91 @@
     <div id="editor-container"></div>
     <select id="type-dropdown" onchange="assignType(this)" aria-label="Select variable type">
         <option value="">Select Type</option>
-        <option value="int">int</option>
-        <option value="float">float</option>
-        <option value="double">double</option>
-        <option value="char">char</option>
-        <option value="char*">char*</option>
-        <option value="void">void</option>
-        <option value="long">long</option>
-        <option value="short">short</option>
-        <option value="unsigned int">unsigned int</option>
+        <option value="int">int</option> <!-- Primary integer type, ubiquitous -->
+        <option value="float">float</option> <!-- Common for single-precision floating-point -->
+        <option value="double">double</option> <!-- Common for double-precision floating-point -->
+        <option value="char">char</option> <!-- Used for characters and small integers -->
+        <option value="void">void</option> <!-- Used for functions and generic pointers -->
+        <option value="long">long</option> <!-- Common for larger integers -->
+        <option value="short">short</option> <!-- Common for smaller integers -->
+        <option value="unsigned int">unsigned int</option> <!-- Common for non-negative integers -->
+
+        <!-- Common Pointer Types -->
+        <option value="char*">char*</option> <!-- Common for strings -->
+        <option value="int*">int*</option> <!-- Common for integer pointers -->
+        <option value="float*">float*</option> <!-- Common for floating-point pointers -->
+        <option value="double*">double*</option> <!-- Common for double-precision pointers -->
+        <option value="void*">void*</option> <!-- Common for generic pointers -->
+
+        <!-- Common Standard Integer Types (from <stdint.h>) -->
+        <option value="size_t">size_t</option> <!-- Common for sizes (e.g., sizeof) -->
+        <option value="int32_t">int32_t</option> <!-- Common for 32-bit signed integers -->
+        <option value="uint32_t">uint32_t</option> <!-- Common for 32-bit unsigned integers -->
+        <option value="int64_t">int64_t</option> <!-- Common for 64-bit signed integers -->
+        <option value="uint64_t">uint64_t</option> <!-- Common for 64-bit unsigned integers -->
+
+        <!-- Signed and Unsigned Variants -->
+        <option value="signed char">signed char</option> <!-- Explicit signed character -->
+        <option value="unsigned char">unsigned char</option> <!-- Common for byte data -->
+        <option value="unsigned long">unsigned long</option> <!-- Common for larger non-negative integers -->
+        <option value="long long">long long</option> <!-- Common for very large integers -->
+        <option value="unsigned long long">unsigned long long</option> <!-- Common for very large non-negative integers -->
+
+        <!-- Less Common Basic Types -->
+        <option value="long double">long double</option> <!-- Extended-precision floating-point, less common -->
+        <option value="unsigned short">unsigned short</option> <!-- Less common than short -->
+
+        <!-- User-Defined Types -->
+        <option value="struct">struct</option> <!-- For composite types, requires name (e.g., struct point) -->
+        <option value="union">union</option> <!-- For shared memory types, less common -->
+        <option value="enum">enum</option> <!-- For enumerated constants, less common -->
+
+        <!-- Other Standard Integer Types (from <stdint.h>) -->
+        <option value="int8_t">int8_t</option> <!-- 8-bit signed, less common -->
+        <option value="uint8_t">uint8_t</option> <!-- 8-bit unsigned, used in embedded systems -->
+        <option value="int16_t">int16_t</option> <!-- 16-bit signed, less common -->
+        <option value="uint16_t">uint16_t</option> <!-- 16-bit unsigned, less common -->
+        <option value="int_least8_t">int_least8_t</option> <!-- At least 8-bit signed, rare -->
+        <option value="uint_least8_t">uint_least8_t</option> <!-- At least 8-bit unsigned, rare -->
+        <option value="int_least16_t">int_least16_t</option> <!-- At least 16-bit signed, rare -->
+        <option value="uint_least16_t">uint_least16_t</option> <!-- At least 16-bit unsigned, rare -->
+        <option value="int_least32_t">int_least32_t</option> <!-- At least 32-bit signed, rare -->
+        <option value="uint_least32_t">uint_least32_t</option> <!-- At least 32-bit unsigned, rare -->
+        <option value="int_least64_t">int_least64_t</option> <!-- At least 64-bit signed, rare -->
+        <option value="uint_least64_t">uint_least64_t</option> <!-- At least 64-bit unsigned, rare -->
+        <option value="int_fast8_t">int_fast8_t</option> <!-- Fastest 8-bit signed, rare -->
+        <option value="uint_fast8_t">uint_fast8_t</option> <!-- Fastest 8-bit unsigned, rare -->
+        <option value="int_fast16_t">int_fast16_t</option> <!-- Fastest 16-bit signed, rare -->
+        <option value="uint_fast16_t">uint_fast16_t</option> <!-- Fastest 16-bit unsigned, rare -->
+        <option value="int_fast32_t">int_fast32_t</option> <!-- Fastest 32-bit signed, rare -->
+        <option value="uint_fast32_t">uint_fast32_t</option> <!-- Fastest 32-bit unsigned, rare -->
+        <option value="int_fast64_t">int_fast64_t</option> <!-- Fastest 64-bit signed, rare -->
+        <option value="uint_fast64_t">uint_fast64_t</option> <!-- Fastest 64-bit unsigned, rare -->
+        <option value="intptr_t">intptr_t</option> <!-- Pointer-sized signed integer, rare -->
+        <option value="uintptr_t">uintptr_t</option> <!-- Pointer-sized unsigned integer, rare -->
+        <option value="intmax_t">intmax_t</option> <!-- Maximum-width signed integer, rare -->
+        <option value="uintmax_t">uintmax_t</option> <!-- Maximum-width unsigned integer, rare -->
+
+        <!-- Other Standard Types -->
+        <option value="ptrdiff_t">ptrdiff_t</option> <!-- Pointer difference, used in pointer arithmetic -->
+        <option value="wchar_t">wchar_t</option> <!-- Wide character, used for extended char sets -->
+        <option value="char16_t">char16_t</option> <!-- UTF-16 character (C11+), rare -->
+        <option value="char32_t">char32_t</option> <!-- UTF-32 character (C11+), rare -->
+        <option value="sig_atomic_t">sig_atomic_t</option> <!-- Signal-safe integer, rare -->
+        <option value="time_t">time_t</option> <!-- Time representation, used in time functions -->
+        <option value="clock_t">clock_t</option> <!-- Processor clock ticks, rare -->
+
+        <!-- Optional Complex Types (C99+) -->
+        <option value="_Complex float">_Complex float</option> <!-- Complex single-precision, optional -->
+        <option value="_Complex double">_Complex double</option> <!-- Complex double-precision, optional -->
+        <option value="_Complex long double">_Complex long double</option> <!-- Complex extended-precision, optional -->
+
+        <!-- Boolean Type (C99+) -->
+        <option value="_Bool">_Bool</option> <!-- Boolean type, aliased as bool in <stdbool.h>, less common -->
+
+        <!-- Atomic Types (C11+) -->
+        <option value="_Atomic int">_Atomic int</option> <!-- Atomic integer, rare -->
+        <!-- Add other _Atomic types as needed, e.g., _Atomic float, etc. -->
     </select>
     <div id="type-tooltip"></div>
     <div id="modal">
