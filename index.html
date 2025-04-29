@@ -60,6 +60,20 @@
         }
         .variable-decoration {
             text-decoration: underline;
+            cursor: pointer !important;  /* This ensures pointer cursor on hover */
+        }
+        /* Monaco-specific override */
+        .monaco-editor .view-overlays .cdr.variable-decoration {
+            cursor: pointer !important;
+        }
+
+        /* For the hover tooltip container */
+        .monaco-editor-hover {
+            cursor: pointer !important;
+        }
+
+        /* Fallback for all decorated elements */
+        [class*="decoration"] {
             cursor: pointer !important;
         }
         #modal {
@@ -209,54 +223,6 @@
             let variablePositions = {};
             let isVariableClick = false;
 
-            function updateVariableDecorations() {
-                const code = editor.getValue();
-                const lines = code.split('\n');
-                const newDecorations = [];
-                variablePositions = {};
-                const declaredVariables = new Set();
-
-                // Step 1: Identify variable declarations/assignments (ignoring 'return')
-                const variableRegex = /\b(?!return\b)([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*(=|[;]))/g;
-                lines.forEach((line, lineIndex) => {
-                    let match;
-                    while ((match = variableRegex.exec(line)) !== null) {
-                        const variable = match[1];
-                        // Skip 'return' if it somehow matches
-                        if (variable === 'return') continue;
-
-                        declaredVariables.add(variable);
-                        const startColumn = match.index + 1;
-                        const endColumn = startColumn + variable.length;
-
-                        variablePositions[variable] = { line: lineIndex + 1, startColumn, endColumn };
-                    }
-                });
-
-                // Step 2: Decorate all occurrences of declared variables (excluding 'return')
-                declaredVariables.forEach(variable => {
-                    if (variable === 'return') return;
-
-                    const regex = new RegExp(`\\b${variable}\\b`, 'g');
-                    lines.forEach((line, lineIndex) => {
-                        let match;
-                        while ((match = regex.exec(line)) !== null) {
-                            const startColumn = match.index + 1;
-                            const endColumn = startColumn + variable.length;
-
-                            newDecorations.push({
-                                range: new monaco.Range(lineIndex + 1, startColumn, lineIndex + 1, endColumn),
-                                options: {
-                                    inlineClassName: 'variable-decoration'
-                                }
-                            });
-                        }
-                    });
-                });
-
-                decorations = editor.deltaDecorations(decorations, newDecorations);
-            }
-
             editor.onDidChangeModelContent(updateVariableDecorations);
             updateVariableDecorations();
 
@@ -333,20 +299,6 @@
                 selectedVariable = null;
             };
 
-            window.lintCode = function() {
-                const code = editor.getValue();
-                const variables = Object.keys(variablePositions);
-                const untyped = variables.filter(v => !variableTypes[v] && v !== 'return');
-
-                if (untyped.length > 0) {
-                    const modalMessage = document.getElementById('modal-message');
-                    modalMessage.textContent = `The following variables are untyped: ${untyped.join(', ')}`;
-                    document.getElementById('modal').style.display = 'flex';
-                } else {
-                    alert('All variables are typed!');
-                }
-            };
-
             window.downloadCode = function() {
                 const code = editor.getValue();
                 const lines = code.split('\n');
@@ -381,7 +333,127 @@
             
 
 
+            window.handleFileUpload = function(input) {
+                const file = input.files[0];
+                if (!file) return;
 
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    const newVariableTypes = {};
+                    const strippedLines = [];
+                    const lines = content.split('\n');
+
+                    // Updated pattern to handle const and ignore NULL
+                    const typePattern = /(\b(?:const\s+)?(?:struct|union|enum|unsigned|signed|short|long|_Bool|_Complex|_Atomic|void|char|int|float|double|size_t|int\d+_t|uint\d+_t|wchar_t|ptrdiff_t)\b\s*)+(\*+\s*|\s*\*+\s*|\s*)([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*[=;,)\[\]])/g;
+
+                    lines.forEach(line => {
+                        let processedLine = line;
+                        let match;
+
+                        typePattern.lastIndex = 0;
+
+                        while ((match = typePattern.exec(line)) !== null) {
+                            const fullMatch = match[0];
+                            const varName = match[match.length - 1];
+
+                            // Skip NULL and other special constants
+                            if (varName === 'NULL' || varName === 'true' || varName === 'false') continue;
+
+                            const typePart = fullMatch.replace(varName, '').trim();
+                            newVariableTypes[varName] = typePart;
+                            processedLine = processedLine.replace(fullMatch, varName);
+                        }
+
+                        strippedLines.push(processedLine);
+                    });
+
+                    editor.setValue(strippedLines.join('\n'));
+                    variableTypes = newVariableTypes;
+                    updateVariableDecorations();
+                    input.value = '';
+                };
+                reader.readAsText(file);
+            };
+
+            function updateVariableDecorations() {
+                const code = editor.getValue();
+                const lines = code.split('\n');
+                const newDecorations = [];
+                variablePositions = {};
+                const declaredVariables = new Set();
+                const ignoredWords = new Set(['return', 'NULL', 'true', 'false', 'printf']);
+
+                // Improved regex to:
+                // 1. Skip string literals
+                // 2. Skip function arguments
+                // 3. Only match actual declarations/assignments
+                const declarationRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b(?=\s*(?:=[^=]|;|\)\s*\{|$))(?!\s*\()/g;
+
+                lines.forEach((line, lineIndex) => {
+                    // First remove string literals from consideration
+                    const withoutStrings = line.replace(/".*?"/g, '');
+
+                    let match;
+                    while ((match = declarationRegex.exec(withoutStrings)) !== null) {
+                        const variable = match[1];
+                        if (ignoredWords.has(variable)) continue;
+
+                        // Verify this is actually a declaration/assignment
+                        const lineUpToVar = line.substring(0, match.index);
+                        if (/(?:^|[^\w])struct|union|enum|auto|register|static|extern|const|volatile|restrict|_Atomic|_Thread_local|_Alignas\b/.test(lineUpToVar)) {
+                            declaredVariables.add(variable);
+                            variablePositions[variable] = {
+                                line: lineIndex + 1,
+                                startColumn: match.index + 1,
+                                endColumn: match.index + 1 + variable.length
+                            };
+                        }
+                    }
+                });
+
+
+                // Only decorate variables that were actually declared
+                declaredVariables.forEach(variable => {
+                    const regex = new RegExp(`\\b${variable}\\b(?![(])`, 'g');
+                    lines.forEach((line, lineIndex) => {
+                        // Skip string literals
+                        const withoutStrings = line.replace(/".*?"/g, '');
+
+                        let match;
+                        while ((match = regex.exec(withoutStrings)) !== null) {
+                            newDecorations.push({
+                                range: new monaco.Range(
+                                    lineIndex + 1,
+                                    match.index + 1,
+                                    lineIndex + 1,
+                                    match.index + 1 + variable.length
+                                ),
+                                options: {
+                                    inlineClassName: 'variable-decoration'
+                                }
+                            });
+                        }
+                    });
+                });
+
+                decorations = editor.deltaDecorations(decorations, newDecorations);
+            }
+
+            // Update lintCode to ignore constants
+            window.lintCode = function() {
+                const ignoredWords = new Set(['return', 'NULL', 'true', 'false']);
+                const variables = Object.keys(variablePositions);
+                const untyped = variables.filter(v => !variableTypes[v] && !ignoredWords.has(v));
+
+                if (untyped.length > 0) {
+                    const modalMessage = document.getElementById('modal-message');
+                    modalMessage.textContent = `The following variables are untyped: ${untyped.join(', ')}`;
+                    document.getElementById('modal').style.display = 'flex';
+                } else {
+                    alert('All variables are typed!');
+                }
+            };
 
         });
     </script>
